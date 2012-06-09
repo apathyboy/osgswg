@@ -9,10 +9,14 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/build-aux/cmake")
 include(GroupSourcesByFilesystem)
 include(CheckIncludeFiles)
 
-find_package(OSG REQUIRED)
+if(DEFINED OSGDIR)
+    set(ENV{OSGDIR} ${OSGDIR})
+endif()
+
+find_package(OpenSceneGraph 3.0.0 REQUIRED osgAnimation osgViewer osgText osgDB osgGA)
 
 include_directories(
-    ${PROJECT_SOURCE_DIR}/swgOSG
+   ${PROJECT_SOURCE_DIR}/meshlib ${PROJECT_SOURCE_DIR}/trelib ${PROJECT_SOURCE_DIR}/swgOSG
 )
 
 add_subdirectory(meshlib)

@@ -13,5 +13,5 @@ include_directories(
 target_link_libraries(swgOSG
     treLib
     meshLib
-    ${OSG_LIBRARY}
+    ${OPENSCENEGRAPH_LIBRARIES}
 )
