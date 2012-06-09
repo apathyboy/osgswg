@@ -7,7 +7,35 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/build-aux/cmake")
 
 # include common scripts
 include(GroupSourcesByFilesystem)
+include(CheckCXXCompilerFlag)
 include(CheckIncludeFiles)
+
+option(TREAT_WARNINGS_AS_ERRORS
+    "Treat all warnings as errors" ON)
+
+if(CMAKE_COMPILER_IS_GNUCXX)
+    check_cxx_compiler_flag(-std=c++0x HAX_CPP0X_SUPPORT)
+    
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+
+    if(TREAT_WARNINGS_AS_ERRORS)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -pedantic-errors")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -pedantic-errors")
+        message(STATUS "- Treating all warnings as errors")
+    endif()
+endif()
+
+if(MSVC)
+    set(_WIN32_WINNT 0x0601 CACHE INTERNAL "Setting _WIN32_WINNT to 0x0601 for Windows Vista minimum APIs")
+    add_definitions(/D _WIN32_WINNT=${_WIN32_WINNT})
+    message(STATUS "Set minimum windows version to Vista")
+
+    if(TREAT_WARNINGS_AS_ERRORS)
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX")
+        message(STATUS "- Treating all warnings as errors")
+    endif()
+endif()
 
 if(DEFINED OSGDIR)
     set(ENV{OSGDIR} ${OSGDIR})
