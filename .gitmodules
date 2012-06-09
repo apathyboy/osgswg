@@ -1,0 +1,6 @@
+[submodule "meshlib"]
+	path = meshlib
+	url = git://github.com/apathyboy/meshlib.git
+[submodule "trelib"]
+	path = trelib
+	url = git://github.com/apathyboy/trelib.git
