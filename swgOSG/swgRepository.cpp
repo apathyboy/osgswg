@@ -46,11 +46,18 @@
 
 #include <memory>
 
+#ifdef WIN32
+#pragma warning( push )
+#pragma warning( disable : 4250 4251 )
+#endif
 #include <osgDB/Registry>
 #include <osg/Point>
 #include <osg/ShapeDrawable>
 
 #include <osgText/Text>
+#ifdef WIN32
+#pragma warning( pop )
+#endif
 
 swgRepository::swgRepository( const std::string &archiveFilePath )
 {
@@ -542,10 +549,10 @@ swgRepository::loadMSH( std::shared_ptr<std::istream> meshFile )
 			// Hard code color for now
 			(vData->getVertex( i ))->getColor( argb );
 			//colors->push_back( osg::Vec4( 1.0, 1.0, 1.0, 1.0 ) );
-			colors->push_back( osg::Vec4( argb[1]/255.0,
-						argb[2]/255.0,
-						argb[3]/255.0,
-						argb[0]/255.0 )
+			colors->push_back( osg::Vec4( argb[1]/255.0f,
+						argb[2]/255.0f,
+						argb[3]/255.0f,
+						argb[0]/255.0f)
 					);
 	  
 	  
@@ -1331,7 +1338,7 @@ swgRepository::loadMLOD( std::shared_ptr<std::istream> mlodFile )
       
       if( NULL != childMesh )
         {
-          mlodMesh->addChild( childMesh, i*100.0, (i+1) * 100.0 );
+          mlodMesh->addChild( childMesh, i*100.0f, (i+1) * 100.0f );
         }
     }
 
@@ -1529,10 +1536,10 @@ swgRepository::loadTRN( std::shared_ptr<std::istream> trnFile )
   float terrainSize = swgTRN.getTerrainSize();
   float waterLevel = swgTRN.getWaterTableHeight();
   
-  float originX = -terrainSize/2.0;
-  float originY = -terrainSize/2.0;
+  float originX = -terrainSize/2.0f;
+  float originY = -terrainSize/2.0f;
 
-  float spacing = 50.0;
+  float spacing = 50.0f;
 
   unsigned int numRows = static_cast<unsigned int>( terrainSize / spacing );
   unsigned int numColumns = numRows;
@@ -1582,7 +1589,7 @@ swgRepository::loadTRN( std::shared_ptr<std::istream> trnFile )
                       );
   matTrans->addChild( geode );
 
-  matTrans->addChild( createWater( terrainSize/2.0, waterLevel ) );
+  matTrans->addChild( createWater( terrainSize/2.0f, waterLevel ) );
 
 
   trnMesh->addChild( matTrans );

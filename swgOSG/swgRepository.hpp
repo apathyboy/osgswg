@@ -27,6 +27,10 @@
 #include <map>
 #include <memory>
 
+#ifdef WIN32
+#pragma warning( push )
+#pragma warning( disable : 4250 )
+#endif
 #include <osg/Geode>
 #include <osg/Geometry>
 #include <osg/LOD>
@@ -46,6 +50,10 @@
 #include <OpenThreads/ScopedLock>
 
 #include <osgDB/ReaderWriter>
+#ifdef WIN32
+#pragma warning( pop )
+#endif
+
 #include <treLib/treArchive.hpp>
 
 #ifndef SWGREPOSITORY_HPP
