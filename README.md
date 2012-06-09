@@ -1,28 +1,78 @@
-meshLib - A general purpose library for working with Star Wars Galaxies game client files
-========================================================================================
+swgOSG - A tool for visualizing Star Wars Galaxies client files
+===============================================================
 
-This is a fork of the xunil meshLib project primarily meant as a learning tool for myself as well as to preserve the original code.
+This is a fork of the xunil swgOSG project primarily meant as a learning tool for myself as well as to preserve the original code.
 
 Below is a note left in the README.txt by the initial author.
 
-> This is a library I started for the purpose of figuring out the Star
-> Wars Galaxies mesh file format.  As I got into it, I started decoding
-> more files and never got around to changing the original name of the
-> library.  So regardless of the name, meshLib can handle more than
-> just the .msh files.  This library is by no means complete.  In some
-> cases it will only dump out the data to the console.  I'm still
-> decoding file formats so expect this library to change as I figure more
-> out.  If you figure out anything thats missing, please let me know so
-> I can integrate it into the core code.
+> This program allows the visualization of some of the Star Wars
+> Galaxies file formats.  Its only been tested in Linux, but should
+> compile under windows with minimal problems.  If you have any problems
+> with the code under windows, let me know and I'll try to fix them.
 > 
-> I only work on linux, so the windows build files are very out of
-> date.  If any windows developer feels like updating them, let me know
-> and I will include the new build files into the package.  I may not
-> work in windows, but I try to write cross-platform friendly code.  So
-> if you have any portability issues with building under windows let me > know and
-> I'll fix the code.
+> To build this code you will need to have my treLib and meshLib
+> libraries.  You can find the latest versions at:
+> http://home.earthlink.net/~xunil/
+> 
+> You will also need to have OpenSceneGraph (v2.7 or higher) installed
+> which is available at http://www.openscenegraph.org/projects/osg
+> 
+> This code is still very much under development, but it does work for
+> quite a few files currently.  Let me know if you encounter any odd
+> issues or problems.
+> 
+> Once you have the software built, you run it by giving it two
+> arguments, the directory containing all your .tre files and the file
+> location inside the .tre.  For example, to view the highest level of
+> detail Boba Fett model, you would use the following command line:
+> 
+> ./swgOSG treDirectory appearance/mesh/boba_fett_l0.mgn
+> 
+> One last thing, you will need to have the treLib and meshLib libraries
+> in your path.  Under linux, the easiest thing to do is to just add them to your
+> LD_LIBRARY_PATH environment variable:
+> 
+> setenv LD_LIBRARY_PATH yourpath/meshLib/lib:yourpath/treLib/lib
+> 
+> Or you can just copy the .so files into the same directory as the
+> swgOSG executable if you have problems setting up your library path.
+> 
+> Once you have it up and running here are a few controls:
+> Left mouse - rotates the model.
+> Middle mouse - pans.
+> Right mouse - zooms.
+> c - screen shot.
+> space bar - reset view.
+> esc - exits.
+> s - Toggles through various graphics statistics.
+> / - Increases the level of detail.
+> * - Decreases the level of detail.
+> 1 - Trackball mode.
+> 2 - Fly mode.
+> 3 - Drive mode.
 > 
 > Contact Xunil at the SWGEmu forums if you have issues.
 > http://www.swgemu.com/forums/index.php
 > 
-> -[Xunil](http://home.earthlink.net/~xunil/)
+> -Xunil
+
+An additional set of notes was left regarding some known issues.
+
+> Unable to find in file archive:
+> appearance/component/thm_nboo_thed_power_generator.cmp
+> appearance/component/thm_nboo_thed_theed_palace.cmp
+> appearance/component/frn_all_lamp_candlestick_free_s2_lit_l0.cmp
+> 
+> 
+> Segfaults:
+> appearance/component/thm_tato_fort_tusken_r0_mesh.cmp
+> appearance/component/aaa_bluebolt.cmp
+> 
+> loadFile called with null filename:
+> object/building/military/shared_outpost_starport.iff
+> 
+> Missing geometry:
+> appearance/mesh/ackbar_l0.mgn
+> 
+> Not a shader. File is type: OPST
+> shader/skin_body.sht
