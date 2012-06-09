@@ -40,12 +40,12 @@
 #include <osgAnimation/Bone>
 #include <osgAnimation/Skeleton>
 //#include <osgAnimation/RigGeometry>
-#include <osgAnimation/Skinning>
+#include <osgAnimation/RigTransformSoftware>
 #include <osgAnimation/BasicAnimationManager>
-
+#include <OpenThreads/ReentrantMutex>
+#include <OpenThreads/ScopedLock>
 
 #include <osgDB/ReaderWriter>
-
 #include <treLib/treArchive.hpp>
 
 #ifndef SWGREPOSITORY_HPP
@@ -58,29 +58,44 @@ public:
   ~swgRepository();
 
   osg::ref_ptr< osg::StateSet > loadShader( const std::string &shaderFilename );
-  osg::ref_ptr< osg::Node > loadAPT( std::auto_ptr<std::istream> iffFile );
-  osg::ref_ptr< osg::Node > loadCMP( std::auto_ptr<std::istream> iffFile );
-  osg::ref_ptr< osg::Node > loadLOD( std::auto_ptr<std::istream> iffFile );
-  osg::ref_ptr< osg::Node > loadINLY( std::auto_ptr<std::istream> iffFile );
-  osg::ref_ptr< osg::Node > loadMSH( std::auto_ptr<std::istream> iffFile );
-  osg::ref_ptr< osg::Node > loadMLOD( std::auto_ptr<std::istream> iffFile );
-  osg::ref_ptr< osg::Node > loadPRTO( std::auto_ptr<std::istream> iffFile );
-  osg::ref_ptr< osg::Node > loadSBOT( std::auto_ptr<std::istream> iffFile );
-  osg::ref_ptr< osg::Node > loadSKMG( std::auto_ptr<std::istream> iffFile );
-  osg::ref_ptr< osg::Node > loadSTAT( std::auto_ptr<std::istream> iffFile );
-  osg::ref_ptr< osg::Node > loadSTOT( std::auto_ptr<std::istream> iffFile );
-  osg::ref_ptr< osg::Node > loadTRN( std::auto_ptr<std::istream> iffFile );
-  osg::ref_ptr< osg::Node > loadWSNP( std::auto_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadAPT( std::shared_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadCMP( std::shared_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadLOD( std::shared_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadINLY( std::shared_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadMSH( std::shared_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadMLOD( std::shared_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadPRTO( std::shared_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadSBOT( std::shared_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadSKMG( std::shared_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadSTAT( std::shared_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadSMAT( std::shared_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadSTOT( std::shared_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadSCOT( std::shared_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadTRN( std::shared_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadWSNP( std::shared_ptr<std::istream> iffFile );
+  osg::ref_ptr< osg::Node > loadCLDF( std::shared_ptr<std::istream> iffFile );
   osg::ref_ptr< osgAnimation::Skeleton >
-  loadSKTM( std::auto_ptr<std::istream> iffFile );
+  loadSKTM( std::shared_ptr<std::istream> iffFile );
 
   osg::ref_ptr< osg::Node > loadFile( const std::string &filename );
   osg::ref_ptr< osg::Texture2D > loadTextureFile( const std::string &filename );
+  osg::ref_ptr< osg::Node > findFile( const std::string &filename);
 
-  
+  void cleanCurrentObjects() {
+	  OpenThreads::ScopedLock<OpenThreads::ReentrantMutex> locker(mutex);
+
+	  nodeMap.clear();
+	  stateMap.clear();
+	  materialMap.clear();
+	  textureMap.clear();
+  }
 
   void createArchive( const std::string &basePath );
 
+  treArchive* getTreArchive() {
+	  return &archive;
+  }
+  
 
 protected:
   osgDB::ReaderWriter *ddsPlugin;
@@ -89,6 +104,7 @@ protected:
   std::map< std::string, osg::ref_ptr< osg::Material > > materialMap;
   std::map< std::string, osg::ref_ptr< osg::StateSet > > stateMap;
   std::map< std::string, osg::ref_ptr< osg::Node > > nodeMap;
+  OpenThreads::ReentrantMutex mutex;
 
 };
 

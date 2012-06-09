@@ -126,12 +126,17 @@ int main( int argc, char **argv )
 					  1.0, 0.0, 0.0 )
 		      );
 
+  try {
+
   unsigned int numFiles = ( argc - 2 );
   for( unsigned int i = 0; i < numFiles; ++i )
     {
       std::string filename( argv[2+i] );
       rootNode->addChild( repo.loadFile( filename ) );
     }
+  } catch (std::exception& exception) {
+	  exit(0);
+  }
 
   // construct the viewer.
   osgViewer::Viewer viewer;
@@ -139,7 +144,10 @@ int main( int argc, char **argv )
   // add model to viewer.
   viewer.setSceneData( rootNode.get() );
 
-  viewer.setUpViewInWindow( 0, 0, 1280, 1024 );
+  //viewer.get
+
+  viewer.setUpViewInWindow( 20, 20, 640, 480 );
+  //viewer.setUpViewAcrossAllScreens();
 
   viewer.addEventHandler( new osgViewer::ScreenCaptureHandler );
   viewer.addEventHandler( new osgViewer::LODScaleHandler );

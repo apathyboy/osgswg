@@ -33,10 +33,13 @@
 #include <meshLib/prto.hpp>
 #include <meshLib/sbot.hpp>
 #include <meshLib/sht.hpp>
+#include <meshLib/cldf.hpp>
 #include <meshLib/skmg.hpp>
 #include <meshLib/sktm.hpp>
 #include <meshLib/stat.hpp>
+#include <meshLib/smat.hpp>
 #include <meshLib/stot.hpp>
+#include <meshLib/scot.hpp>
 #include <meshLib/swts.hpp>
 #include <meshLib/trn.hpp>
 #include <meshLib/ws.hpp>
@@ -62,15 +65,9 @@ swgRepository::~swgRepository()
 }
 
 osg::ref_ptr< osg::Node >
-swgRepository::loadFile( const std::string &filename )
-{
-  if( filename.empty() )
-    {
-      std::cout << "loadFile called with null filename!" << std::endl;
-      return NULL;
-    }
-  
-  // See if file is already loaded...
+swgRepository::findFile( const std::string &filename ) {
+	OpenThreads::ScopedLock<OpenThreads::ReentrantMutex> locker(mutex);
+
   std::map< std::string, osg::ref_ptr< osg::Node > >::iterator
     currentFile = nodeMap.find( filename );
   
@@ -81,12 +78,29 @@ swgRepository::loadFile( const std::string &filename )
       std::cout << "File already loaded: " << filename << std::endl;
       return currentFile->second;
     }
+
+  return NULL;
+}
+
+osg::ref_ptr< osg::Node >
+swgRepository::loadFile( const std::string &filename )
+{
+  if( filename.empty() )
+    {
+      std::cout << "loadFile called with null filename!" << std::endl;
+      return NULL;
+    }
+  
+  osg::ref_ptr< osg::Node > foundFile = findFile(filename);
+
+  if (foundFile != NULL)
+	  return foundFile;
   
   // Otherwise we need to read the file from the archive.
   std::cout << "Reading file from archive: " << filename << std::endl;
 
   // Read file data into a stream
-  std::auto_ptr< std::istream >
+  std::shared_ptr< std::istream >
     iffFile( archive.getFileStream( filename ) );
   
   if( NULL == iffFile.get() )
@@ -163,9 +177,23 @@ swgRepository::loadFile( const std::string &filename )
     {
       newNode = loadSKTM( iffFile );
     }
+  else if ("SCOT" == type) 
+  {
+	  newNode = loadSCOT( iffFile );
+  }
+  else if ("SMAT" == type) 
+  {
+	newNode = loadSMAT( iffFile );
+  }
+  else if ("CLDF" == type)
+  {
+	  newNode = loadCLDF(iffFile);
+  }
   
   if( NULL != newNode )
     {
+		 OpenThreads::ScopedLock<OpenThreads::ReentrantMutex> locker(mutex);
+
       nodeMap[filename] = newNode;
     }
   
@@ -180,6 +208,8 @@ swgRepository::loadTextureFile( const std::string &filename )
       std::cout << "loadTextureFile called with null filename!" << std::endl;
       return NULL;
     }
+
+  OpenThreads::ScopedLock<OpenThreads::ReentrantMutex> locker(mutex);
   
   // See if file is already loaded...
   std::map< std::string, osg::ref_ptr< osg::Texture2D > >::iterator
@@ -197,7 +227,7 @@ swgRepository::loadTextureFile( const std::string &filename )
   std::cout << "Reading file from archive: " << filename << std::endl;
 
   // Setup an auto_ptr to handle the istream.
-  std::auto_ptr<std::istream>
+  std::shared_ptr<std::istream>
     textureFile( archive.getFileStream( filename ) );
   
   // Call DDS plugin directly to read from istream.
@@ -237,6 +267,8 @@ swgRepository::loadShader( const std::string &shaderFilename )
       return NULL;
     }
 
+  OpenThreads::ScopedLock<OpenThreads::ReentrantMutex> locker(mutex);
+
   std::map< std::string, osg::ref_ptr< osg::StateSet > >::iterator
     currentState = stateMap.find( shaderFilename );
 
@@ -251,8 +283,11 @@ swgRepository::loadShader( const std::string &shaderFilename )
   std::cout << "Reading shader from archive: " << shaderFilename << std::endl;
 
   // Read file data into a stream
-  std::auto_ptr< std::istream >
+  std::shared_ptr< std::istream >
     shaderFile( archive.getFileStream( shaderFilename ) );
+
+  if (shaderFile == NULL)
+	  return NULL;
   
   // Figure out what type this generic .iff actually is.
   std::string type =  ml::base::getType( *shaderFile );
@@ -430,7 +465,7 @@ swgRepository::loadShader( const std::string &shaderFilename )
 }
 
 osg::ref_ptr< osg::Node >
-swgRepository::loadPRTO( std::auto_ptr<std::istream> prtoFile )
+swgRepository::loadPRTO( std::shared_ptr<std::istream> prtoFile )
 {
   // Read from stream into prto record
   ml::prto swgPRTO;
@@ -456,7 +491,7 @@ swgRepository::loadPRTO( std::auto_ptr<std::istream> prtoFile )
 }
 
 osg::ref_ptr< osg::Node >
-swgRepository::loadMSH( std::auto_ptr<std::istream> meshFile )
+swgRepository::loadMSH( std::shared_ptr<std::istream> meshFile )
 {
   // Read from stream into msh record
   ml::msh swgMesh;
@@ -480,118 +515,109 @@ swgRepository::loadMSH( std::auto_ptr<std::istream> meshFile )
   float texCoord[12];
 
   // Loop through all the sets of vertex indices.
-  for(unsigned int indexTable = 0; indexTable < swgMesh.getNumIndexTables();
-      ++indexTable )
-    {
-      osg::Vec3Array* vertices = new osg::Vec3Array;
-      osg::Vec3Array* normals = new osg::Vec3Array;
-      osg::Vec4Array* colors = new osg::Vec4Array;
+	for(unsigned int indexTable = 0; indexTable < swgMesh.getNumIndexTables(); ++indexTable ) {
+		osg::Vec3Array* vertices = new osg::Vec3Array;
+		osg::Vec3Array* normals = new osg::Vec3Array;
+		osg::Vec4Array* colors = new osg::Vec4Array;
 
-      std::vector< osg::ref_ptr< osg::Vec2Array > > texCoordVec;
-      for( unsigned int i = 0; i < ml::MAX_TEXTURES; ++i )
-	{
-	  texCoordVec.push_back( new osg::Vec2Array );
-	}
+		std::vector< osg::ref_ptr< osg::Vec2Array > > texCoordVec;
+		for( unsigned int i = 0; i < ml::MAX_TEXTURES; ++i ) {
+			texCoordVec.push_back( new osg::Vec2Array );
+		}
       
-      swgMesh.getIndex( indexTable, &vData, &iData, shaderFilename );
-      unsigned int numVertices = vData->getNumVertices();
-      std::cout << "Adding " << numVertices << " vertices" << std::endl;
+		swgMesh.getIndex( indexTable, &vData, &iData, shaderFilename );
+		unsigned int numVertices = vData->getNumVertices();
+		std::cout << "Adding " << numVertices << " vertices" << std::endl;
 
-      // Build list of vertices used with current indices.
-      for( unsigned int i = 0; i < numVertices; ++i )
-	{
-	  (vData->getVertex( i ))->getPosition( x, y, z );
-	  vertices->push_back( osg::Vec3( z, y, x ) );
+		// Build list of vertices used with current indices.
+		for( unsigned int i = 0; i < numVertices; ++i ) {
+			(vData->getVertex( i ))->getPosition( x, y, z );
+			vertices->push_back( osg::Vec3( x, y, z ) );
 	  
-	  //std::cout << x << ", " << y << ", " << z << std::endl;
+			//std::cout << x << ", " << y << ", " << z << std::endl;
 	  
-	  (vData->getVertex( i ))->getNormal( x, y, z );
-	  normals->push_back( osg::Vec3( z, y, x ) );
+			(vData->getVertex( i ))->getNormal( x, y, z );
+			normals->push_back( osg::Vec3( x, y, z ) );
 	  
-	  // Hard code color for now
-	  (vData->getVertex( i ))->getColor( argb );
-	  //colors->push_back( osg::Vec4( 1.0, 1.0, 1.0, 1.0 ) );
-	  colors->push_back( osg::Vec4( argb[1]/255.0,
-					argb[2]/255.0,
-					argb[3]/255.0,
-					argb[0]/255.0 )
-			     );
+			// Hard code color for now
+			(vData->getVertex( i ))->getColor( argb );
+			//colors->push_back( osg::Vec4( 1.0, 1.0, 1.0, 1.0 ) );
+			colors->push_back( osg::Vec4( argb[1]/255.0,
+						argb[2]/255.0,
+						argb[3]/255.0,
+						argb[0]/255.0 )
+					);
 	  
 	  
-	  (vData->getVertex( i ))->getTexCoords( numTexCoordPairs,
+			(vData->getVertex( i ))->getTexCoords( numTexCoordPairs,
 						 texCoord );
 	  
-	  for( unsigned int j = 0; j < numTexCoordPairs; ++j )
-	    {
-	      texCoordVec[j]->push_back(
+			for( unsigned int j = 0; j < numTexCoordPairs; ++j ) {
+				texCoordVec[j]->push_back(
 					osg::Vec2( texCoord[j*2],
 						   texCoord[(j*2)+1] )
 					);
-	    }
+			}
+		}
+      
+		// Create new geometry node list of vertex attributes.
+		osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry;
+      
+		geometry->setVertexArray( vertices );
+      
+		geometry->setColorArray( colors );
+		geometry->setColorBinding( osg::Geometry::BIND_PER_VERTEX );
+      
+		geometry->setNormalArray( normals );
+		geometry->setNormalBinding( osg::Geometry::BIND_PER_VERTEX );      
+
+		for( unsigned int j = 0; j < ml::MAX_TEXTURES; ++ j ) {
+			if( !(texCoordVec[j]->empty()) ) {
+				geometry->setTexCoordArray( j, texCoordVec[j].get() );
+			}
+		}
+
+		unsigned int numIndices = iData->getNumIndices();
+		std::cout << "Num indices: " << numIndices << std::endl;
+      
+		// Create new primitive set to hold this list.
+		osg::DrawElementsUShort* drawElements = new osg::DrawElementsUShort( osg::PrimitiveSet::TRIANGLES );
+		drawElements->reserve( numIndices );
+      
+		// Populate primitive set with indices.
+		for( unsigned int i = 0; i < numIndices; ++i ) {
+			if( iData->getIndex( i ) >= numVertices ) {
+				std::cout << "Indexing outside vertex list: "
+				<< iData->getIndex( i )
+				<< std::endl;
+			}
+
+			drawElements->push_back( iData->getIndex( i ) );
+		}
+
+		// Add primitive set to this geometry node.
+		geometry->addPrimitiveSet( drawElements );
+      
+		// Load shader and attach to this geometry node.
+		std::string shaderFilename = swgMesh.getShader( iData->getShaderIndex() );
+		geometry->setStateSet( loadShader( shaderFilename ) );
+
+		osg::VertexBufferObject *vbo = new osg::VertexBufferObject;
+		vertices->setVertexBufferObject( vbo );
+
+		osg::ElementBufferObject* ebo = new osg::ElementBufferObject;
+		drawElements->setElementBufferObject( ebo );
+
+		geometry->setUseVertexBufferObjects( ( NULL != vbo ) );
+
+		geode->addDrawable( geometry.get() );
 	}
-      
-      // Create new geometry node list of vertex attributes.
-      osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry;
-      
-      geometry->setVertexArray( vertices );
-      
-      geometry->setColorArray( colors );
-      geometry->setColorBinding( osg::Geometry::BIND_PER_VERTEX );
-      
-      geometry->setNormalArray( normals );
-      geometry->setNormalBinding( osg::Geometry::BIND_PER_VERTEX );      
 
-      for( unsigned int j = 0; j < ml::MAX_TEXTURES; ++ j )
-	{
-	  if( !(texCoordVec[j]->empty()) )
-	    {
-	      geometry->setTexCoordArray( j, texCoordVec[j].get() );
-	    }
-	}
-
-      unsigned int numIndices = iData->getNumIndices();
-      std::cout << "Num indices: " << numIndices << std::endl;
-      
-      // Create new primitive set to hold this list.
-      osg::DrawElementsUShort* drawElements =
-	new osg::DrawElementsUShort( osg::PrimitiveSet::TRIANGLES );
-      drawElements->reserve( numIndices );
-      
-      // Populate primitive set with indices.
-      for( unsigned int i = 0; i < numIndices; ++i )
-	{
-	  if( iData->getIndex( i ) >= numVertices )
-	    {
-	      std::cout << "Indexing outside vertex list: "
-			<< iData->getIndex( i )
-			<< std::endl;
-	    }
-	  drawElements->push_back( iData->getIndex( i ) );
-	}
-
-      // Add primitive set to this geometry node.
-      geometry->addPrimitiveSet( drawElements );
-      
-      // Load shader and attach to this geometry node.
-      std::string shaderFilename = swgMesh.getShader( iData->getShaderIndex() );
-      geometry->setStateSet( loadShader( shaderFilename ) );
-
-      osg::VertexBufferObject *vbo = new osg::VertexBufferObject;
-      vertices->setVertexBufferObject( vbo );
-
-      osg::ElementBufferObject* ebo = new osg::ElementBufferObject;
-      drawElements->setElementBufferObject( ebo );
-
-      geometry->setUseVertexBufferObjects( ( NULL != vbo ) );
-
-      geode->addDrawable( geometry.get() );
-    }
-
-  return geode;
+	return geode;
 }
 
 osg::ref_ptr< osg::Node >
-swgRepository::loadSKMG( std::auto_ptr<std::istream> meshFile )
+swgRepository::loadSKMG( std::shared_ptr<std::istream> meshFile )
 {
   // Read from stream into skmg record
   ml::skmg swgSKMG;
@@ -623,12 +649,12 @@ swgRepository::loadSKMG( std::auto_ptr<std::istream> meshFile )
       for( unsigned int i = 0; i < newPsdt.getNumVertex(); ++i )
 	{
 	  newPsdt.getVertex( i, x, y, z );
-	  vertices->push_back( osg::Vec3( z, y, x ) );
+	  vertices->push_back( osg::Vec3( x, y, z ) );
 	  
 	  std::cout << "xyz: " << x << ", " << y << ", " << z << std::endl;
 	  
 	  newPsdt.getNormal( i, x, y, z );
-	  normals->push_back( osg::Vec3( z, y, x ) );
+	  normals->push_back( osg::Vec3( x, y, z ) );
 	  
 	  // Hard code color for now
 	  colors->push_back( osg::Vec4( 1.0, 1.0, 1.0, 1.0 ) );
@@ -705,7 +731,7 @@ swgRepository::loadSKMG( std::auto_ptr<std::istream> meshFile )
 }
 
 osg::ref_ptr< osg::Node >
-swgRepository::loadLOD( std::auto_ptr<std::istream> lodFile )
+swgRepository::loadLOD( std::shared_ptr<std::istream> lodFile )
 {
   // Read from stream into lod record
   ml::lod swgLOD;
@@ -733,7 +759,7 @@ swgRepository::loadLOD( std::auto_ptr<std::istream> lodFile )
 }
 
 osg::ref_ptr< osg::Node >
-swgRepository::loadCMP( std::auto_ptr<std::istream> cmpFile )
+swgRepository::loadCMP( std::shared_ptr<std::istream> cmpFile )
 {
   // Read from stream into cmp record
   ml::cmp swgCMP;
@@ -783,7 +809,7 @@ swgRepository::loadCMP( std::auto_ptr<std::istream> cmpFile )
 }
 
 osg::ref_ptr< osg::Node >
-swgRepository::loadAPT( std::auto_ptr<std::istream> aptFile )
+swgRepository::loadAPT( std::shared_ptr<std::istream> aptFile )
 {
   // Read from stream into apt record
   ml::apt swgAPT;
@@ -805,7 +831,7 @@ swgRepository::loadAPT( std::auto_ptr<std::istream> aptFile )
 }
 
 osg::ref_ptr<osg::Node>
-swgRepository::loadSTAT( std::auto_ptr<std::istream> statFile )
+swgRepository::loadSTAT( std::shared_ptr<std::istream> statFile )
 {
   // Read from stream into stat record
   ml::stat swgSTAT;
@@ -815,6 +841,14 @@ swgRepository::loadSTAT( std::auto_ptr<std::istream> statFile )
 
   std::string appearanceFilename( swgSTAT.getAppearanceFilename() );
 
+  if (appearanceFilename.empty()) {
+	  std::string derv = swgSTAT.getStatBaseObjectFilename();
+
+	  if (!derv.empty()) {
+		return loadFile(derv);
+	  }
+  }
+
   osg::ref_ptr<osg::Node> appearanceMesh( loadFile( appearanceFilename ) );
   
   if( NULL != appearanceMesh )
@@ -822,19 +856,33 @@ swgRepository::loadSTAT( std::auto_ptr<std::istream> statFile )
       statMesh->addChild( appearanceMesh.get() );
     }
 
-  return statMesh;
+  osg::MatrixTransform* transform = new osg::MatrixTransform;
+  transform->setMatrix(osg::Matrix::scale(swgSTAT.getScale(), swgSTAT.getScale(), swgSTAT.getScale()));
+  transform->addChild(statMesh);
+
+  return transform;
 }
 
 osg::ref_ptr< osg::Node >
-swgRepository::loadSTOT( std::auto_ptr<std::istream> stotFile )
+swgRepository::loadSTOT( std::shared_ptr<std::istream> stotFile )
 {
   // Read from stream into stot record
   ml::stot swgSTOT;
   swgSTOT.readSTOT( *stotFile );
-  
-  osg::ref_ptr<osg::Group> stotMesh( new osg::Group );
+
+  //swgSTOT.getDE
 
   std::string appearanceFilename( swgSTOT.getAppearanceFilename() );
+
+  if (appearanceFilename.empty()) {
+	  std::string derv = swgSTOT.getStotBaseObjectFilename();
+
+	  if (!derv.empty()) {
+		return loadFile(derv);
+	  }
+  }
+  
+  osg::ref_ptr<osg::Group> stotMesh( new osg::Group );
 
   osg::ref_ptr<osg::Node> appearanceMesh( loadFile( appearanceFilename ) );
 
@@ -843,11 +891,106 @@ swgRepository::loadSTOT( std::auto_ptr<std::istream> stotFile )
       stotMesh->addChild( appearanceMesh.get() );
     }
 
+   osg::MatrixTransform* transform = new osg::MatrixTransform;
+  transform->setMatrix(osg::Matrix::scale(swgSTOT.getScale(), swgSTOT.getScale(), swgSTOT.getScale()));
+  transform->addChild(stotMesh);
+
+  return transform;
+}
+
+osg::ref_ptr< osg::Node > 
+swgRepository::loadSCOT( std::shared_ptr<std::istream> iffFile ) {
+// Read from stream into stot record
+  ml::scot swgSCOT;
+  swgSCOT.readSCOT( *iffFile );
+  
+  osg::ref_ptr<osg::Group> stotMesh( new osg::Group );
+
+  std::string appearanceFilename( swgSCOT.getAppearanceFilename() );
+
+   if (appearanceFilename.empty()) {
+	  std::string derv = swgSCOT.getScotBaseObjectFilename();
+
+	  if (!derv.empty()) {
+		loadFile(derv);
+	  }
+  }
+
+  osg::ref_ptr<osg::Node> appearanceMesh( loadFile( appearanceFilename ) );
+
+  if( NULL != appearanceMesh )
+    {
+		//std::cout << "appearenceMesh != NULL" << std::endl;
+      stotMesh->addChild( appearanceMesh.get() );
+    }
+  else {
+	  std::cout << "appearenceMesh = NULL" << std::endl;
+  }
+
+
+  std::string filename( swgSCOT.getClientDataFile() );
+  osg::ref_ptr<osg::Node> wearMesh( loadFile( filename ) );
+  if( NULL != wearMesh )
+    {
+      stotMesh->addChild( wearMesh );
+    }
+
   return stotMesh;
 }
 
+osg::ref_ptr< osg::Node > 
+swgRepository::loadCLDF( std::shared_ptr<std::istream> iffFile ) {
+	ml::cldf swgCLDF;
+	swgCLDF.readCLDF(*iffFile);
+
+	osg::ref_ptr<osg::Group> cldf( new osg::Group );
+
+	std::vector<std::string> meshes = swgCLDF.getWearMeshes();
+
+	for (unsigned int i = 0; i < meshes.size(); ++i) {
+		osg::ref_ptr<osg::Node> appearanceMesh( loadFile( meshes.at(i) ) );
+
+		if( NULL != appearanceMesh )
+		{
+			//std::cout << "appearenceMesh in loadSMAT != NULL" << std::endl;
+			cldf->addChild( appearanceMesh.get() );
+		}
+		else {
+			std::cout << "appearenceMesh in loadCLDF = NULL" << std::endl;
+		}
+	}
+
+	return cldf;
+}
+
+osg::ref_ptr< osg::Node > 
+swgRepository::loadSMAT( std::shared_ptr<std::istream> iffFile ) {
+	ml::smat swgSMAT;
+	swgSMAT.readSMAT(*iffFile);
+
+	std::vector<std::string> meshes = swgSMAT.getMSGNS();
+
+	osg::ref_ptr<osg::Group> smatMesh( new osg::Group );
+
+	for (unsigned int i = 0; i < meshes.size(); ++i) {
+		osg::ref_ptr<osg::Node> appearanceMesh( loadFile( meshes.at(i) ) );
+
+		if( NULL != appearanceMesh )
+		{
+			//std::cout << "appearenceMesh in loadSMAT != NULL" << std::endl;
+			smatMesh->addChild( appearanceMesh.get() );
+		}
+		else {
+			std::cout << "appearenceMesh in loadSMAT = NULL" << std::endl;
+		}
+	}
+
+	return smatMesh;
+}
+
+
 osg::ref_ptr< osg::Node >
-swgRepository::loadSBOT( std::auto_ptr<std::istream> sbotFile )
+swgRepository::loadSBOT( std::shared_ptr<std::istream> sbotFile )
 {
   // Read from stream into sbot record
   ml::sbot swgSBOT;
@@ -856,7 +999,17 @@ swgRepository::loadSBOT( std::auto_ptr<std::istream> sbotFile )
   osg::ref_ptr<osg::Group> sbotMesh( new osg::Group );
 
   std::string filename( swgSBOT.getAppearanceFilename() );
-  osg::ref_ptr<osg::Node> appearanceMesh( loadFile( filename ) );
+
+  if (filename.empty()) {
+	  std::string derv = swgSBOT.getSbotBaseObjectFilename();
+
+	  if (!derv.empty()) {
+		loadFile(derv);
+	  }
+  }
+
+   osg::ref_ptr<osg::Node> appearanceMesh( loadFile( filename ) );
+
   if( NULL != appearanceMesh )
     {
       sbotMesh->addChild( appearanceMesh );
@@ -877,11 +1030,15 @@ swgRepository::loadSBOT( std::auto_ptr<std::istream> sbotFile )
       sbotMesh->addChild( interiorLayoutMesh );
     }
 
-  return sbotMesh;
+  osg::MatrixTransform* transform = new osg::MatrixTransform;
+  transform->setMatrix(osg::Matrix::scale(swgSBOT.getScale(), swgSBOT.getScale(), swgSBOT.getScale()));
+  transform->addChild(sbotMesh);
+
+  return transform;
 }
 
 osg::ref_ptr<osg::Node> 
-swgRepository::loadINLY( std::auto_ptr<std::istream> inlyFile )
+swgRepository::loadINLY( std::shared_ptr<std::istream> inlyFile )
 {
   // Read from stream into inly record
   ml::ilf swgINLY;
@@ -923,15 +1080,23 @@ swgRepository::loadINLY( std::auto_ptr<std::istream> inlyFile )
 			      0.0, 0.0, 0.0, 1.0
 			      );
 #else
-	  osg::Matrix rotMat( nodeRot.get(0),nodeRot.get(3),-nodeRot.get(6), 0.0,
+	  /*osg::Matrix rotMat( nodeRot.get(0),nodeRot.get(3),-nodeRot.get(6), 0.0,
 			      nodeRot.get(1),nodeRot.get(4),-nodeRot.get(7), 0.0,
 			      -nodeRot.get(2),-nodeRot.get(5),nodeRot.get(8), 0.0,
 			      0.0, 0.0, 0.0, 1.0
+			      );*/
+
+	  osg::Matrix rotMat( nodeRot.get(0),nodeRot.get(3), nodeRot.get(6), 0.0,
+
+			      nodeRot.get(1),nodeRot.get(4), nodeRot.get(7), 0.0,
+
+			      nodeRot.get(2), -nodeRot.get(5),nodeRot.get(8), 0.0,
+			      0.0, 0.0, 0.0, 1.0
 			      );
 #endif
-	  osg::Matrix transMat( osg::Matrix::translate( nodeTrans.getZ(),
+	  osg::Matrix transMat( osg::Matrix::translate( nodeTrans.getX(),
 							nodeTrans.getY(),
-							nodeTrans.getX())
+							nodeTrans.getZ())
 				);
 	  transform->setMatrix( rotMat * transMat );
 	  transform->addChild( loadFile( nodeFilename ) );
@@ -944,7 +1109,7 @@ swgRepository::loadINLY( std::auto_ptr<std::istream> inlyFile )
 }
 
 osg::ref_ptr<osg::Node> 
-swgRepository::loadWSNP( std::auto_ptr<std::istream> wsnpFile )
+swgRepository::loadWSNP( std::shared_ptr<std::istream> wsnpFile )
 {
   // Read from stream into wsnp record
   ml::ws swgWSNP;
@@ -1065,7 +1230,7 @@ osg::Geode* createLine( const osg::Vec3 &xyz )
 }
 
 osg::ref_ptr< osgAnimation::Skeleton >
-swgRepository::loadSKTM( std::auto_ptr<std::istream> sktmFile )
+swgRepository::loadSKTM( std::shared_ptr<std::istream> sktmFile )
 {
   ml::sktm swgSKTM;
   swgSKTM.readSKTM( *sktmFile );
@@ -1088,13 +1253,28 @@ swgRepository::loadSKTM( std::auto_ptr<std::istream> sktmFile )
 			 swgSKTM.getBonePreQuatZ( i ),
 			 swgSKTM.getBonePreQuatW( i ) );
 
-      newBone->setRotation( preQuat * postQuat );
+	  //osgAnimation::Bone::
 
-      newBone->setTranslation(osg::Vec3(
+      //newBone->setRotation( preQuat * postQuat );
+
+	  osg::Quat rotation = preQuat * postQuat;
+
+	  osg::Vec3 translation = osg::Vec3(
+					swgSKTM.getBoneXOffset( i ),
+					swgSKTM.getBoneYOffset( i ),
+					swgSKTM.getBoneZOffset( i ));
+
+	  osg::Matrix mt1;
+	  mt1.setTrans(translation);
+	  mt1.setRotate(rotation);
+
+      /*newBone->setTranslation(osg::Vec3(
 					swgSKTM.getBoneXOffset( i ),
 					swgSKTM.getBoneYOffset( i ),
 					swgSKTM.getBoneZOffset( i ))
-			      );
+			      );*/
+
+		newBone->setMatrix(mt1);
 
       newBone->setName( swgSKTM.getBoneName( i ) );
       newBone->addChild( createAxis() );
@@ -1120,7 +1300,7 @@ swgRepository::loadSKTM( std::auto_ptr<std::istream> sktmFile )
       if( parent >= 0 )
 	{
 	  boneList[parent]->addChild( boneList[i].get() );
-	  boneList[parent]->addChild( createLine(boneList[i]->getTranslation()) );
+	  boneList[parent]->addChild( createLine(boneList[i]->getMatrix().getTrans()) );
 	}
       else
 	{
@@ -1132,7 +1312,7 @@ swgRepository::loadSKTM( std::auto_ptr<std::istream> sktmFile )
 }
 
 osg::ref_ptr< osg::Node >
-swgRepository::loadMLOD( std::auto_ptr<std::istream> mlodFile )
+swgRepository::loadMLOD( std::shared_ptr<std::istream> mlodFile )
 {
   // Read from stream into mlod record
   ml::mlod swgMLOD;
@@ -1273,7 +1453,7 @@ osg::Geode* createCircle( const ml::trn::bcir &cir, float alt )
 }
 
 osg::ref_ptr< osg::Node >
-swgRepository::loadTRN( std::auto_ptr<std::istream> trnFile )
+swgRepository::loadTRN( std::shared_ptr<std::istream> trnFile )
 {
   // Read from stream into trn record
   ml::trn swgTRN;
@@ -1340,7 +1520,7 @@ osg::Geode* createWater( const float &terrainHalfSize, const float &height )
 }
 
 osg::ref_ptr< osg::Node >
-swgRepository::loadTRN( std::auto_ptr<std::istream> trnFile )
+swgRepository::loadTRN( std::shared_ptr<std::istream> trnFile )
 {
   // Read from stream into trn record
   ml::trn swgTRN;
@@ -1414,26 +1594,15 @@ swgRepository::loadTRN( std::auto_ptr<std::istream> trnFile )
 void swgRepository::createArchive( const std::string &basePath )
 {
   archive.addFile( basePath+"bottom.tre" );
-  archive.addFile( basePath+"data_animation_00.tre" );
   archive.addFile( basePath+"data_music_00.tre" );
-  archive.addFile( basePath+"data_other_00.tre" );
   archive.addFile( basePath+"data_sample_00.tre" );
   archive.addFile( basePath+"data_sample_01.tre" );
   archive.addFile( basePath+"data_sample_02.tre" );
   archive.addFile( basePath+"data_sample_03.tre" );
   archive.addFile( basePath+"data_sample_04.tre" );
+  archive.addFile( basePath+"data_animation_00.tre" );
   archive.addFile( basePath+"data_skeletal_mesh_00.tre" );
   archive.addFile( basePath+"data_skeletal_mesh_01.tre" );
-  archive.addFile( basePath+"data_sku1_00.tre" );
-  archive.addFile( basePath+"data_sku1_01.tre" );
-  archive.addFile( basePath+"data_sku1_02.tre" );
-  archive.addFile( basePath+"data_sku1_03.tre" );
-  archive.addFile( basePath+"data_sku1_04.tre" );
-  archive.addFile( basePath+"data_sku1_05.tre" );
-  archive.addFile( basePath+"data_sku1_06.tre" );
-  archive.addFile( basePath+"data_sku1_07.tre" );
-  archive.addFile( basePath+"data_static_mesh_00.tre" );
-  archive.addFile( basePath+"data_static_mesh_01.tre" );
   archive.addFile( basePath+"data_texture_00.tre" );
   archive.addFile( basePath+"data_texture_01.tre" );
   archive.addFile( basePath+"data_texture_02.tre" );
@@ -1442,7 +1611,9 @@ void swgRepository::createArchive( const std::string &basePath )
   archive.addFile( basePath+"data_texture_05.tre" );
   archive.addFile( basePath+"data_texture_06.tre" );
   archive.addFile( basePath+"data_texture_07.tre" );
-  archive.addFile( basePath+"default_patch.tre" );
+  archive.addFile( basePath+"data_static_mesh_00.tre" );
+  archive.addFile( basePath+"data_static_mesh_01.tre" );
+  archive.addFile( basePath+"data_other_00.tre" );
   archive.addFile( basePath+"patch_00.tre" );
   archive.addFile( basePath+"patch_01.tre" );
   archive.addFile( basePath+"patch_02.tre" );
@@ -1454,12 +1625,26 @@ void swgRepository::createArchive( const std::string &basePath )
   archive.addFile( basePath+"patch_08.tre" );
   archive.addFile( basePath+"patch_09.tre" );
   archive.addFile( basePath+"patch_10.tre" );
+  archive.addFile( basePath+"data_sku1_00.tre" );
+  archive.addFile( basePath+"data_sku1_01.tre" );
+  archive.addFile( basePath+"data_sku1_02.tre" );
+  archive.addFile( basePath+"data_sku1_03.tre" );
+  archive.addFile( basePath+"data_sku1_04.tre" );
+  archive.addFile( basePath+"data_sku1_05.tre" );
   archive.addFile( basePath+"patch_11_00.tre" );
   archive.addFile( basePath+"patch_11_01.tre" );
+  archive.addFile( basePath+"data_sku1_06.tre" );
   archive.addFile( basePath+"patch_11_02.tre" );
+  archive.addFile( basePath+"data_sku1_07.tre" );
   archive.addFile( basePath+"patch_11_03.tre" );
   archive.addFile( basePath+"patch_12_00.tre" );
+  archive.addFile( basePath+"patch_sku1_12_00.tre" );
   archive.addFile( basePath+"patch_13_00.tre" );
+  archive.addFile( basePath+"patch_sku1_13_00.tre" );
+  archive.addFile( basePath+"patch_14_00.tre" );
+  archive.addFile( basePath+"patch_sku1_14_00.tre" );
+  archive.addFile( basePath+"default_patch.tre" );
+  
 #if 1
   archive.addFile( basePath+"hotfix_24_client_00.tre" );
   archive.addFile( basePath+"hotfix_24_shared_00.tre" );
