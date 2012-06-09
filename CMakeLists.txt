@@ -14,10 +14,16 @@ if(DEFINED OSGDIR)
 endif()
 
 find_package(OpenSceneGraph 3.0.0 REQUIRED osgAnimation osgViewer osgText osgDB osgGA)
+find_package(ZLib REQUIRED)
 
 include_directories(
    ${PROJECT_SOURCE_DIR}/meshlib ${PROJECT_SOURCE_DIR}/trelib ${PROJECT_SOURCE_DIR}/swgOSG
 )
+
+if(MSVC)
+	get_filename_component(ZLIB_DLL_PATH ${ZLIB_LIBRARIES} PATH)
+	get_filename_component(OSG_DLL_PATH ${OSG_LIBRARY}/../bin PATH)
+endif()
 
 add_subdirectory(meshlib)
 add_subdirectory(trelib)
