@@ -3,6 +3,20 @@ swgOSG - A tool for visualizing Star Wars Galaxies client files
 
 This is a fork of the xunil swgOSG project primarily meant as a learning tool for myself as well as to preserve the original code.
 
+Simple Build Instructions
+-------------------------
+
+    git clone https://github.com/apathyboy/swgosg.git
+    cd swgosg
+    git submodule update --init
+    mkdir build
+    cd build
+    cmake ..
+    cmake --build .
+    
+Additional Notes
+----------------
+
 Below is a note left in the README.txt by the initial author.
 
 > This program allows the visualization of some of the Star Wars
