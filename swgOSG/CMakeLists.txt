@@ -14,6 +14,7 @@ target_link_libraries(swgOSG
     treLib
     meshLib
     ${OPENSCENEGRAPH_LIBRARIES}
+    ${ZLIB_LIBRARY_RELEASE}
 )
 
 if(MSVC)

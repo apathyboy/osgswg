@@ -21,7 +21,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     if(TREAT_WARNINGS_AS_ERRORS)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -pedantic-errors")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -pedantic-errors")
-        message(STATUS "Treating all warnings as errors")
+        message(STATUS "- Treating all warnings as errors")
     endif()
 endif()
 
@@ -50,7 +50,9 @@ include_directories(
 
 if(MSVC)
 	get_filename_component(ZLIB_DLL_PATH ${ZLIB_LIBRARY_RELEASE} PATH)
-	get_filename_component(OSG_DLL_PATH ${OSG_LIBRARY}/../bin PATH)
+	get_filename_component(OSG_DLL_PATH ${OSG_LIBRARY} PATH)
+    string(REPLACE "/" "\\" ZLIB_DLL_PATH "${ZLIB_DLL_PATH}")
+    string(REPLACE "/" "\\" OSG_DLL_PATH "${OSG_DLL_PATH}\\..\\bin")
 endif()
 
 add_subdirectory(meshlib)
