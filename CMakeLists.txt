@@ -13,6 +13,9 @@ include(CheckIncludeFiles)
 option(TREAT_WARNINGS_AS_ERRORS
     "Treat all warnings as errors" ON)
 
+option(BUILD_TOOLS
+    "Explicitly force building of tools" OFF)
+
 if(CMAKE_COMPILER_IS_GNUCXX)
     check_cxx_compiler_flag(-std=c++0x HAX_CPP0X_SUPPORT)
     
@@ -64,4 +67,7 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/trelib/CMakeLists.txt)
 endif()
 
 add_subdirectory(osgswg)
-add_subdirectory(swgOSG)
+
+if(BUILD_TOOLS)
+    add_subdirectory(tools)
+endif()
