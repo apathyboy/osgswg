@@ -22,7 +22,7 @@
  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include <swgRepository.hpp>
+#include "swgRepository.hpp"
 #include <meshLib/apt.hpp>
 #include <meshLib/cmp.hpp>
 #include <meshLib/cshd.hpp>

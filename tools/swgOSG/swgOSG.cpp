@@ -54,7 +54,7 @@
 #pragma warning( pop )
 #endif
 
-#include <swgRepository.hpp>
+#include "swgRepository.hpp"
 
 std::tuple<std::string, std::vector<std::string>> ProcessInput(int argc, char *argv[]);
 osg::ref_ptr<osg::Node> buildTerrain();

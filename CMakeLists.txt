@@ -13,7 +13,7 @@ include(CheckIncludeFiles)
 option(TREAT_WARNINGS_AS_ERRORS
     "Treat all warnings as errors" ON)
 
-option(BUILD_TOOLS
+option(BUILD_OSGSWG_TOOLS
     "Explicitly force building of tools" OFF)
 
 if(CMAKE_COMPILER_IS_GNUCXX)
@@ -68,6 +68,6 @@ endif()
 
 add_subdirectory(osgswg)
 
-if(BUILD_TOOLS)
+if(BUILD_OSGSWG_TOOLS)
     add_subdirectory(tools)
 endif()
