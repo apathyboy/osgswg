@@ -6,10 +6,6 @@ add_executable(swgOSG
     ${SOURCES}
 )
 
-include_directories(
-    ${OSG_INCLUDE_DIR}
-)
-
 target_link_libraries(swgOSG
     treLib
     meshLib
