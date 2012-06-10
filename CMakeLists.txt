@@ -53,14 +53,14 @@ if(MSVC)
     string(REPLACE "/" "\\" OSG_DLL_PATH "${OSG_DLL_PATH}\\..\\bin")
 endif()
 
-if(IS_DIRECTORY meshlib)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/meshlib/CMakeLists.txt)
     add_subdirectory(meshlib)
-    include_directories(${PROJECT_SOURCE_DIR}/meshlib)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/meshlib)
 endif()    
 
-if(IS_DIRECTORY trelib)
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/trelib/CMakeLists.txt)
     add_subdirectory(trelib)
-    include_directories(${PROJECT_SOURCE_DIR}/trelib)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/trelib)
 endif()
 
 add_subdirectory(osgswg)
