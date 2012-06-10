@@ -44,9 +44,7 @@ endif()
 find_package(OpenSceneGraph 3.0.0 REQUIRED osgAnimation osgViewer osgText osgDB osgGA)
 find_package(ZLib REQUIRED)
 
-include_directories(
-   ${PROJECT_SOURCE_DIR}/meshlib ${PROJECT_SOURCE_DIR}/trelib ${PROJECT_SOURCE_DIR}/swgOSG
-)
+include_directories(${PROJECT_SOURCE_DIR}/swgOSG)
 
 if(MSVC)
 	get_filename_component(ZLIB_DLL_PATH ${ZLIB_LIBRARY_RELEASE} PATH)
@@ -55,6 +53,24 @@ if(MSVC)
     string(REPLACE "/" "\\" OSG_DLL_PATH "${OSG_DLL_PATH}\\..\\bin")
 endif()
 
-add_subdirectory(meshlib)
-add_subdirectory(trelib)
+get_target_property(meshlib_location meshLib LOCATION)
+if("${meshlib_location}" STREQUAL "meshlib_location-NOTFOUND")        
+    if (IS_DIRECTORY meshlib)
+        add_subdirectory(meshlib)
+        include_directories(${PROJECT_SOURCE_DIR}/meshlib)
+    else()
+        message(FATAL_ERROR "Unable to find the meshlib library. See documentation for more details")
+    endif()    
+endif()
+
+get_target_property(trelib_location treLib LOCATION)
+if("${trelib_location}" STREQUAL "trelib_location-NOTFOUND")        
+    if (IS_DIRECTORY trelib)
+        add_subdirectory(trelib)
+        include_directories(${PROJECT_SOURCE_DIR}/trelib)
+    else()
+        message(FATAL_ERROR "Unable to find the trelib library. See documentation for more details")
+    endif()    
+endif()
+
 add_subdirectory(swgOSG)
