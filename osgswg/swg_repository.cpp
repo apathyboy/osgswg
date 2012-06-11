@@ -46,6 +46,8 @@
 #include <meshLib/ws.hpp>
 
 #include <memory>
+#include <sstream>
+#include <vector>
 
 #ifdef WIN32
 #pragma warning( push )
@@ -61,11 +63,19 @@
 #endif
 
 swgRepository::swgRepository( const std::string &archiveFilePath )
+    : archive_(nullptr)
 {
   createArchive( archiveFilePath );
 
   // Get pointer to ddsplugin.
   ddsPlugin = osgDB::Registry::instance()->getReaderWriterForExtension( "dds" );
+}
+
+
+swgRepository::swgRepository(const std::shared_ptr<treLib::TreArchive>& archive)
+    : archive_(archive)
+{
+    ddsPlugin = osgDB::Registry::instance()->getReaderWriterForExtension("dds");
 }
 
 swgRepository::~swgRepository()
@@ -108,9 +118,10 @@ swgRepository::loadFile( const std::string &filename )
   std::cout << "Reading file from archive: " << filename << std::endl;
 
   // Read file data into a stream
-  std::shared_ptr< std::istream >
-    iffFile( archive.getFileStream( filename ) );
-  
+  auto file_data = archive_->GetResource(filename);
+  auto iffFile = std::make_shared<std::stringstream>();
+  iffFile->write(reinterpret_cast<char*>(&file_data[0]), file_data.size());
+
   if( NULL == iffFile.get() )
     {
       std::cout << "Unable to find file in archive!" << std::endl;
@@ -235,8 +246,9 @@ swgRepository::loadTextureFile( const std::string &filename )
   std::cout << "Reading file from archive: " << filename << std::endl;
 
   // Setup an auto_ptr to handle the istream.
-  std::shared_ptr<std::istream>
-    textureFile( archive.getFileStream( filename ) );
+  auto file_data = archive_->GetResource(filename);
+  auto textureFile = std::make_shared<std::stringstream>();
+  textureFile->write(reinterpret_cast<char*>(&file_data[0]), file_data.size());
   
   // Call DDS plugin directly to read from istream.
   if( !ddsPlugin )
@@ -291,8 +303,9 @@ swgRepository::loadShader( const std::string &shaderFilename )
   std::cout << "Reading shader from archive: " << shaderFilename << std::endl;
 
   // Read file data into a stream
-  std::shared_ptr< std::istream >
-    shaderFile( archive.getFileStream( shaderFilename ) );
+  auto file_data = archive_->GetResource(shaderFilename);
+  auto shaderFile = std::make_shared<std::stringstream>();
+  shaderFile->write(reinterpret_cast<char*>(&file_data[0]), file_data.size());
 
   if (shaderFile == NULL)
 	  return NULL;
@@ -1601,72 +1614,76 @@ swgRepository::loadTRN( std::shared_ptr<std::istream> trnFile )
 
 void swgRepository::createArchive( const std::string &basePath )
 {
-  archive.addFile( basePath+"bottom.tre" );
-  archive.addFile( basePath+"data_music_00.tre" );
-  archive.addFile( basePath+"data_sample_00.tre" );
-  archive.addFile( basePath+"data_sample_01.tre" );
-  archive.addFile( basePath+"data_sample_02.tre" );
-  archive.addFile( basePath+"data_sample_03.tre" );
-  archive.addFile( basePath+"data_sample_04.tre" );
-  archive.addFile( basePath+"data_animation_00.tre" );
-  archive.addFile( basePath+"data_skeletal_mesh_00.tre" );
-  archive.addFile( basePath+"data_skeletal_mesh_01.tre" );
-  archive.addFile( basePath+"data_texture_00.tre" );
-  archive.addFile( basePath+"data_texture_01.tre" );
-  archive.addFile( basePath+"data_texture_02.tre" );
-  archive.addFile( basePath+"data_texture_03.tre" );
-  archive.addFile( basePath+"data_texture_04.tre" );
-  archive.addFile( basePath+"data_texture_05.tre" );
-  archive.addFile( basePath+"data_texture_06.tre" );
-  archive.addFile( basePath+"data_texture_07.tre" );
-  archive.addFile( basePath+"data_static_mesh_00.tre" );
-  archive.addFile( basePath+"data_static_mesh_01.tre" );
-  archive.addFile( basePath+"data_other_00.tre" );
-  archive.addFile( basePath+"patch_00.tre" );
-  archive.addFile( basePath+"patch_01.tre" );
-  archive.addFile( basePath+"patch_02.tre" );
-  archive.addFile( basePath+"patch_03.tre" );
-  archive.addFile( basePath+"patch_04.tre" );
-  archive.addFile( basePath+"patch_05.tre" );
-  archive.addFile( basePath+"patch_06.tre" );
-  archive.addFile( basePath+"patch_07.tre" );
-  archive.addFile( basePath+"patch_08.tre" );
-  archive.addFile( basePath+"patch_09.tre" );
-  archive.addFile( basePath+"patch_10.tre" );
-  archive.addFile( basePath+"data_sku1_00.tre" );
-  archive.addFile( basePath+"data_sku1_01.tre" );
-  archive.addFile( basePath+"data_sku1_02.tre" );
-  archive.addFile( basePath+"data_sku1_03.tre" );
-  archive.addFile( basePath+"data_sku1_04.tre" );
-  archive.addFile( basePath+"data_sku1_05.tre" );
-  archive.addFile( basePath+"patch_11_00.tre" );
-  archive.addFile( basePath+"patch_11_01.tre" );
-  archive.addFile( basePath+"data_sku1_06.tre" );
-  archive.addFile( basePath+"patch_11_02.tre" );
-  archive.addFile( basePath+"data_sku1_07.tre" );
-  archive.addFile( basePath+"patch_11_03.tre" );
-  archive.addFile( basePath+"patch_12_00.tre" );
-  archive.addFile( basePath+"patch_sku1_12_00.tre" );
-  archive.addFile( basePath+"patch_13_00.tre" );
-  archive.addFile( basePath+"patch_sku1_13_00.tre" );
-  archive.addFile( basePath+"patch_14_00.tre" );
-  archive.addFile( basePath+"patch_sku1_14_00.tre" );
-  archive.addFile( basePath+"default_patch.tre" );
+    std::vector<std::string> archive_files;
+
+    archive_files.emplace_back(basePath+"bottom.tre");
+    archive_files.emplace_back(basePath+"data_music_00.tre");
+    archive_files.emplace_back(basePath+"data_sample_00.tre");
+    archive_files.emplace_back(basePath+"data_sample_01.tre");
+    archive_files.emplace_back(basePath+"data_sample_02.tre");
+    archive_files.emplace_back(basePath+"data_sample_03.tre");
+    archive_files.emplace_back(basePath+"data_sample_04.tre");
+    archive_files.emplace_back(basePath+"data_animation_00.tre");
+    archive_files.emplace_back(basePath+"data_skeletal_mesh_00.tre");
+    archive_files.emplace_back(basePath+"data_skeletal_mesh_01.tre");
+    archive_files.emplace_back(basePath+"data_texture_00.tre");
+    archive_files.emplace_back(basePath+"data_texture_01.tre");
+    archive_files.emplace_back(basePath+"data_texture_02.tre");
+    archive_files.emplace_back(basePath+"data_texture_03.tre");
+    archive_files.emplace_back(basePath+"data_texture_04.tre");
+    archive_files.emplace_back(basePath+"data_texture_05.tre");
+    archive_files.emplace_back(basePath+"data_texture_06.tre");
+    archive_files.emplace_back(basePath+"data_texture_07.tre");
+    archive_files.emplace_back(basePath+"data_static_mesh_00.tre");
+    archive_files.emplace_back(basePath+"data_static_mesh_01.tre");
+    archive_files.emplace_back(basePath+"data_other_00.tre");
+    archive_files.emplace_back(basePath+"patch_00.tre");
+    archive_files.emplace_back(basePath+"patch_01.tre");
+    archive_files.emplace_back(basePath+"patch_02.tre");
+    archive_files.emplace_back(basePath+"patch_03.tre");
+    archive_files.emplace_back(basePath+"patch_04.tre");
+    archive_files.emplace_back(basePath+"patch_05.tre");
+    archive_files.emplace_back(basePath+"patch_06.tre");
+    archive_files.emplace_back(basePath+"patch_07.tre");
+    archive_files.emplace_back(basePath+"patch_08.tre");
+    archive_files.emplace_back(basePath+"patch_09.tre");
+    archive_files.emplace_back(basePath+"patch_10.tre");
+    archive_files.emplace_back(basePath+"data_sku1_00.tre");
+    archive_files.emplace_back(basePath+"data_sku1_01.tre");
+    archive_files.emplace_back(basePath+"data_sku1_02.tre");
+    archive_files.emplace_back(basePath+"data_sku1_03.tre");
+    archive_files.emplace_back(basePath+"data_sku1_04.tre");
+    archive_files.emplace_back(basePath+"data_sku1_05.tre");
+    archive_files.emplace_back(basePath+"patch_11_00.tre");
+    archive_files.emplace_back(basePath+"patch_11_01.tre");
+    archive_files.emplace_back(basePath+"data_sku1_06.tre");
+    archive_files.emplace_back(basePath+"patch_11_02.tre");
+    archive_files.emplace_back(basePath+"data_sku1_07.tre");
+    archive_files.emplace_back(basePath+"patch_11_03.tre");
+    archive_files.emplace_back(basePath+"patch_12_00.tre");
+    archive_files.emplace_back(basePath+"patch_sku1_12_00.tre");
+    archive_files.emplace_back(basePath+"patch_13_00.tre");
+    archive_files.emplace_back(basePath+"patch_sku1_13_00.tre");
+    archive_files.emplace_back(basePath+"patch_14_00.tre");
+    archive_files.emplace_back(basePath+"patch_sku1_14_00.tre");
+    archive_files.emplace_back(basePath+"default_patch.tre");
   
 #if 1
-  archive.addFile( basePath+"hotfix_24_client_00.tre" );
-  archive.addFile( basePath+"hotfix_24_shared_00.tre" );
-  archive.addFile( basePath+"hotfix_26_client_00.tre" );
-  archive.addFile( basePath+"hotfix_26_shared_00.tre" );
-  archive.addFile( basePath+"hotfix_28_client_00.tre" );
-  archive.addFile( basePath+"hotfix_28_shared_00.tre" );
-  archive.addFile( basePath+"hotfix_29_client_00.tre" );
-  archive.addFile( basePath+"hotfix_29_shared_00.tre" );
-  archive.addFile( basePath+"hotfix_sku1_19_client_00.tre" );
-  archive.addFile( basePath+"hotfix_sku1_20_client_00.tre" );
-  archive.addFile( basePath+"hotfix_sku1_21_client_00.tre" );
-  archive.addFile( basePath+"hotfix_sku1_23_client_00.tre" );
-  archive.addFile( basePath+"hotfix_sku1_28_client_00.tre" );
+    archive_files.emplace_back(basePath+"hotfix_24_client_00.tre");
+    archive_files.emplace_back(basePath+"hotfix_24_shared_00.tre");
+    archive_files.emplace_back(basePath+"hotfix_26_client_00.tre");
+    archive_files.emplace_back(basePath+"hotfix_26_shared_00.tre");
+    archive_files.emplace_back(basePath+"hotfix_28_client_00.tre");
+    archive_files.emplace_back(basePath+"hotfix_28_shared_00.tre");
+    archive_files.emplace_back(basePath+"hotfix_29_client_00.tre");
+    archive_files.emplace_back(basePath+"hotfix_29_shared_00.tre");
+    archive_files.emplace_back(basePath+"hotfix_sku1_19_client_00.tre");
+    archive_files.emplace_back(basePath+"hotfix_sku1_20_client_00.tre");
+    archive_files.emplace_back(basePath+"hotfix_sku1_21_client_00.tre");
+    archive_files.emplace_back(basePath+"hotfix_sku1_23_client_00.tre");
+    archive_files.emplace_back(basePath+"hotfix_sku1_28_client_00.tre");
 #endif
+
+    archive_ = std::make_shared<treLib::TreArchive>(std::move(archive_files));
 }
 

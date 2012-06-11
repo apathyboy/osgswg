@@ -38,12 +38,23 @@ if(MSVC)
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX")
         message(STATUS "Treating all warnings as errors")
     endif()
+    
+    add_definitions (/D BOOST_ALL_DYN_LINK)
+    message(STATUS "BOOST: Enable dynamic linking")
+    
+    add_definitions(/D BOOST_ALL_NO_LIB)
+    message(STATUS "BOOST: Disable automatic linking")
 endif()
+
+# Use the static/multithreaded libraries.
+set(Boost_USE_STATIC_LIBS OFF)
+set(Boost_USE_MULTITHREADED ON)
 
 if(DEFINED OSGDIR)
     set(ENV{OSGDIR} ${OSGDIR})
 endif()
 
+find_package(Boost 1.49.0 COMPONENTS thread REQUIRED)
 find_package(OpenSceneGraph 3.0.0 REQUIRED osgAnimation osgViewer osgText osgDB osgGA)
 find_package(ZLib REQUIRED)
 

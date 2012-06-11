@@ -55,6 +55,7 @@
 #endif
 
 #include <treLib/treArchive.hpp>
+#include <treLib/tre_archive.h>
 
 #ifndef SWGREPOSITORY_HPP
 #define SWGREPOSITORY_HPP
@@ -63,6 +64,8 @@ class swgRepository
 {
 public:
   swgRepository( const std::string &archiveFilePath );
+  explicit swgRepository(const std::shared_ptr<treLib::TreArchive>& archive);
+
   ~swgRepository();
 
   osg::ref_ptr< osg::StateSet > loadShader( const std::string &shaderFilename );
@@ -100,20 +103,22 @@ public:
 
   void createArchive( const std::string &basePath );
 
-  treArchive* getTreArchive() {
-	  return &archive;
+  treLib::TreArchive* getTreArchive() {
+	  return archive_.get();
   }
   
 
 protected:
   osgDB::ReaderWriter *ddsPlugin;
-  treArchive archive;
   std::map< std::string, osg::ref_ptr< osg::Texture2D > > textureMap;
   std::map< std::string, osg::ref_ptr< osg::Material > > materialMap;
   std::map< std::string, osg::ref_ptr< osg::StateSet > > stateMap;
   std::map< std::string, osg::ref_ptr< osg::Node > > nodeMap;
   OpenThreads::ReentrantMutex mutex;
 
+
+private:
+    std::shared_ptr<treLib::TreArchive> archive_;
 };
 
 #endif
