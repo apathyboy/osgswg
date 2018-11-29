@@ -18,7 +18,7 @@ option(BUILD_OSGSWG_TOOLS
 
 if(CMAKE_COMPILER_IS_GNUCXX)
     check_cxx_compiler_flag(-std=c++0x HAX_CPP0X_SUPPORT)
-    
+
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 
     if(TREAT_WARNINGS_AS_ERRORS)
@@ -38,10 +38,10 @@ if(MSVC)
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX")
         message(STATUS "Treating all warnings as errors")
     endif()
-    
+
     add_definitions (/D BOOST_ALL_DYN_LINK)
     message(STATUS "BOOST: Enable dynamic linking")
-    
+
     add_definitions(/D BOOST_ALL_NO_LIB)
     message(STATUS "BOOST: Disable automatic linking")
 endif()
@@ -62,7 +62,7 @@ include_directories(${PROJECT_SOURCE_DIR}/swgOSG ${OSG_INCLUDE_DIR})
 
 if(MSVC)
 	get_filename_component(ZLIB_DLL_PATH ${ZLIB_LIBRARY_RELEASE} PATH)
-	get_filename_component(OSG_DLL_PATH ${OSG_LIBRARY} PATH)
+	get_filename_component(OSG_DLL_PATH ${OSG_LIBRARY_RELEASE} PATH)
     string(REPLACE "/" "\\" ZLIB_DLL_PATH "${ZLIB_DLL_PATH}")
     string(REPLACE "/" "\\" OSG_DLL_PATH "${OSG_DLL_PATH}\\..\\bin")
 endif()
@@ -70,7 +70,7 @@ endif()
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/meshlib/CMakeLists.txt)
     add_subdirectory(meshlib)
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/meshlib)
-endif()    
+endif()
 
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/trelib/CMakeLists.txt)
     add_subdirectory(trelib)
