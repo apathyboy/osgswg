@@ -1,84 +1,18 @@
-cmake_minimum_required(VERSION 2.8.6)
 
-project(swgOSG CXX)
+cmake_minimum_required(VERSION 3.10)
 
-# set the path for custom cmake scripts
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/build-aux/cmake")
+project(swgOSG VERSION 1.0.0)
 
-# include common scripts
-include(GroupSourcesByFilesystem)
-include(CheckCXXCompilerFlag)
-include(CheckIncludeFiles)
+find_package(OpenSceneGraph 3.0.0 COMPONENTS osgAnimation osgViewer osgText osgDB osgGA REQUIRED)
 
-option(TREAT_WARNINGS_AS_ERRORS
-    "Treat all warnings as errors" ON)
+add_subdirectory(meshlib)
+add_subdirectory(trelib)
 
-option(BUILD_OSGSWG_TOOLS
-    "Explicitly force building of tools" OFF)
+add_executable(swgOSG
+    swgOSG/swgOSG.cpp
+    swgOSG/swgRepository.cpp
+)
 
-if(CMAKE_COMPILER_IS_GNUCXX)
-    check_cxx_compiler_flag(-std=c++0x HAX_CPP0X_SUPPORT)
+target_include_directories(swgOSG PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/swgOSG ${OSG_INCLUDE_DIR})
 
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
-
-    if(TREAT_WARNINGS_AS_ERRORS)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -pedantic-errors")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -pedantic-errors")
-        message(STATUS "- Treating all warnings as errors")
-    endif()
-endif()
-
-if(MSVC)
-    set(_WIN32_WINNT 0x0601 CACHE INTERNAL "Setting _WIN32_WINNT to 0x0601 for Windows Vista minimum APIs")
-    add_definitions(/D _WIN32_WINNT=${_WIN32_WINNT})
-    message(STATUS "Set minimum windows version to Vista")
-
-    if(TREAT_WARNINGS_AS_ERRORS)
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /WX")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX")
-        message(STATUS "Treating all warnings as errors")
-    endif()
-
-    add_definitions (/D BOOST_ALL_DYN_LINK)
-    message(STATUS "BOOST: Enable dynamic linking")
-
-    add_definitions(/D BOOST_ALL_NO_LIB)
-    message(STATUS "BOOST: Disable automatic linking")
-endif()
-
-# Use the static/multithreaded libraries.
-set(Boost_USE_STATIC_LIBS OFF)
-set(Boost_USE_MULTITHREADED ON)
-
-if(DEFINED OSGDIR)
-    set(ENV{OSGDIR} ${OSGDIR})
-endif()
-
-find_package(Boost 1.49.0 COMPONENTS thread REQUIRED)
-find_package(OpenSceneGraph 3.0.0 REQUIRED osgAnimation osgViewer osgText osgDB osgGA)
-find_package(ZLib REQUIRED)
-
-include_directories(${PROJECT_SOURCE_DIR}/swgOSG ${OSG_INCLUDE_DIR})
-
-if(MSVC)
-	get_filename_component(ZLIB_DLL_PATH ${ZLIB_LIBRARY_RELEASE} PATH)
-	get_filename_component(OSG_DLL_PATH ${OSG_LIBRARY_RELEASE} PATH)
-    string(REPLACE "/" "\\" ZLIB_DLL_PATH "${ZLIB_DLL_PATH}")
-    string(REPLACE "/" "\\" OSG_DLL_PATH "${OSG_DLL_PATH}\\..\\bin")
-endif()
-
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/meshlib/CMakeLists.txt)
-    add_subdirectory(meshlib)
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/meshlib)
-endif()
-
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/trelib/CMakeLists.txt)
-    add_subdirectory(trelib)
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/trelib)
-endif()
-
-add_subdirectory(osgswg)
-
-if(BUILD_OSGSWG_TOOLS)
-    add_subdirectory(tools)
-endif()
+target_link_libraries(swgOSG PRIVATE  meshLib::meshLib treLib::treLib ${OPENSCENEGRAPH_LIBRARIES})
